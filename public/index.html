@@ -54,6 +54,77 @@
       image-rendering: pixelated;
       image-rendering: crisp-edges;
     }
+
+    /* ===== スマホ用タッチUI ===== */
+    #touch-ui {
+      display: none; /* JS で isTouchDevice の場合に flex に切替 */
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 50;
+    }
+
+    /* ジョイスティック外枠 — 左下 */
+    #joystick-zone {
+      position: absolute;
+      left: 24px;
+      bottom: 28px;
+      width: 110px;
+      height: 110px;
+      pointer-events: all;
+      touch-action: none;
+    }
+    #joystick-base {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.10);
+      border: 2px solid rgba(255,255,255,0.28);
+    }
+    #joystick-stick {
+      position: absolute;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(80,160,255,0.75);
+      border: 2px solid rgba(140,200,255,0.90);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      transition: background 0.1s;
+      pointer-events: none;
+    }
+
+    /* FOCUSボタン — 右下 */
+    #focus-btn {
+      position: absolute;
+      right: 24px;
+      bottom: 36px;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: rgba(30,30,60,0.75);
+      border: 2px solid rgba(100,150,255,0.60);
+      color: #aaccff;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: all;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    #focus-btn.active {
+      background: rgba(180,20,20,0.80);
+      border-color: rgba(255,100,100,0.90);
+      color: #ffcccc;
+    }
   </style>
 </head>
 <body>
@@ -69,6 +140,18 @@
   </div>
 
   <canvas id="canvas"></canvas>
+
+  <!-- スマホ用タッチUI（JS で表示制御） -->
+  <div id="touch-ui">
+    <!-- バーチャルジョイスティック（左下） -->
+    <div id="joystick-zone">
+      <div id="joystick-base"></div>
+      <div id="joystick-stick"></div>
+    </div>
+    <!-- FOCUSボタン（右下） -->
+    <button id="focus-btn">FOCUS</button>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script>
   'use strict';
@@ -147,6 +230,87 @@
       case 'ArrowRight': case 'KeyD': keys.right = false; break;
     }
   });
+
+  // ============================================================
+  //  タッチ操作（スマホ用バーチャルジョイスティック）
+  // ============================================================
+
+  /**
+   * タッチデバイス検出。
+   * ポインターがタッチ対応なら UI を表示する。
+   */
+  function initTouchUI() {
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    if (!isTouch) return;
+
+    // タッチUIを表示
+    const touchUI = document.getElementById('touch-ui');
+    touchUI.style.display = 'block';
+
+    // ---- ジョイスティック ----
+    const zone  = document.getElementById('joystick-zone');
+    const stick = document.getElementById('joystick-stick');
+    const RADIUS = 33; // スティックの最大移動半径 (px)
+    const DEAD   = 8;  // デッドゾーン (px) — この範囲内は無入力扱い
+
+    let joyActive = false;
+    let joyOriginX = 0, joyOriginY = 0;
+
+    function updateJoy(touchX, touchY) {
+      // zone の中心からの相対位置
+      const rect = zone.getBoundingClientRect();
+      const cx = rect.left + rect.width  / 2;
+      const cy = rect.top  + rect.height / 2;
+      let dx = touchX - cx;
+      let dy = touchY - cy;
+
+      // スティックを最大半径内にクランプ
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist > RADIUS) { dx = dx/dist*RADIUS; dy = dy/dist*RADIUS; }
+
+      // スティックの見た目を移動
+      stick.style.transform = `translate(calc(-50% + ${Math.round(dx)}px), calc(-50% + ${Math.round(dy)}px))`;
+
+      // keys フラグをデッドゾーン判定で更新
+      keys.left  = dx < -DEAD;
+      keys.right = dx >  DEAD;
+      keys.up    = dy < -DEAD;
+      keys.down  = dy >  DEAD;
+    }
+
+    function resetJoy() {
+      stick.style.transform = 'translate(-50%, -50%)';
+      keys.up = keys.down = keys.left = keys.right = false;
+      joyActive = false;
+    }
+
+    zone.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      joyActive = true;
+      updateJoy(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
+
+    zone.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (!joyActive) return;
+      updateJoy(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
+
+    zone.addEventListener('touchend',    (e) => { e.preventDefault(); resetJoy(); }, { passive: false });
+    zone.addEventListener('touchcancel', (e) => { e.preventDefault(); resetJoy(); }, { passive: false });
+
+    // ---- FOCUSボタン ----
+    const focusBtn = document.getElementById('focus-btn');
+
+    focusBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (!localPlayer) return;
+      localPlayer.status = localPlayer.status === 'normal' ? 'focus' : 'normal';
+      socket.emit('status_change', { status: localPlayer.status });
+      // ボタンの見た目を同期
+      focusBtn.classList.toggle('active', localPlayer.status === 'focus');
+    }, { passive: false });
+  }
 
   // ============================================================
   //  ゲームループ
@@ -771,6 +935,7 @@
     }
     document.getElementById('overlay').style.display='none';
     initSocket(name);
+    initTouchUI();           // タッチデバイスならジョイスティックを有効化
     requestAnimationFrame(gameLoop);
   });
   document.getElementById('nameInput').addEventListener('keydown',(e)=>{
