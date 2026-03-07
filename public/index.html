@@ -10,26 +10,34 @@
       background: #000;
       display: flex;
       justify-content: center;
-      align-items: flex-start;
+      align-items: center;
       width: 100vw;
       height: 100vh;
       height: 100dvh;
       overflow: hidden;
       font-family: 'Courier New', Courier, monospace;
     }
-    /* スマホ縦画面: Canvasを上寄せ、コントロール領域を下に確保 */
+    /* スマホ縦画面: 縦分割レイアウト（Canvas上部 + コントロールデッキ下部） */
     @media (orientation: portrait) {
       body {
-        align-items: flex-start;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
       }
       #canvas {
-        margin-top: 0 !important;
+        width: 100vw !important;
+        flex-shrink: 0;
+      }
+      /* コントロールデッキ表示 */
+      #control-deck {
+        display: flex !important;
       }
     }
     /* PC/横画面: 従来通り中央配置 */
     @media (orientation: landscape) {
       body {
         align-items: center;
+        justify-content: center;
       }
     }
     #overlay {
@@ -71,13 +79,17 @@
       image-rendering: crisp-edges;
     }
 
-    /* ===== スマホ用タッチUI ===== */
+    /* ===== スマホ用タッチUI（横画面フォールバック用） ===== */
     #touch-ui {
       display: none; /* JS で isTouchDevice の場合に flex に切替 */
       position: fixed;
       inset: 0;
       pointer-events: none;
       z-index: 50;
+    }
+    /* 縦画面ではタッチUIをコントロールデッキに統合するので非表示 */
+    @media (orientation: portrait) {
+      #touch-ui { display: none !important; }
     }
 
     /* ジョイスティック外枠 — 左下 */
@@ -140,6 +152,157 @@
       background: rgba(180,20,20,0.80);
       border-color: rgba(255,100,100,0.90);
       color: #ffcccc;
+    }
+
+    /* ===== コントロールデッキ（スマホ縦画面のみ表示） ===== */
+    #control-deck {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      position: relative;
+      background: linear-gradient(180deg, #0a0a1a 0%, #0d1025 40%, #101230 100%);
+      border-top: 2px solid rgba(34,85,204,0.40);
+      overflow: hidden;
+    }
+    /* デッキ上部の装飾ライン */
+    #control-deck::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 10%; right: 10%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(68,136,255,0.30), transparent);
+    }
+    /* デッキ内レイアウト */
+    #deck-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      position: relative;
+    }
+    /* デッキ内ジョイスティック */
+    #deck-joystick-zone {
+      width: 120px;
+      height: 120px;
+      position: relative;
+      pointer-events: all;
+      touch-action: none;
+      flex-shrink: 0;
+    }
+    #deck-joystick-base {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.06);
+      border: 2px solid rgba(100,150,255,0.30);
+    }
+    #deck-joystick-stick {
+      position: absolute;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(80,160,255,0.65);
+      border: 2px solid rgba(140,200,255,0.80);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      transition: background 0.1s;
+      pointer-events: none;
+    }
+    /* デッキ中央 — ステータス表示 */
+    #deck-status {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+    #deck-status-label {
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: rgba(100,130,200,0.60);
+      text-transform: uppercase;
+    }
+    #deck-status-value {
+      font-size: 12px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      color: #44cc88;
+      transition: color 0.2s;
+    }
+    #deck-status-value.focus {
+      color: #ff5555;
+    }
+    #deck-online {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: rgba(68,255,136,0.70);
+    }
+    /* デッキ右側 — ボタン群 */
+    #deck-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      flex-shrink: 0;
+      align-items: center;
+    }
+    #deck-focus-btn {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: rgba(20,20,50,0.80);
+      border: 2px solid rgba(100,150,255,0.50);
+      color: #aaccff;
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: all;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    #deck-focus-btn.active {
+      background: rgba(180,20,20,0.80);
+      border-color: rgba(255,100,100,0.80);
+      color: #ffcccc;
+    }
+    #deck-chat-btn {
+      padding: 8px 16px;
+      background: rgba(14, 14, 34, 0.90);
+      border: 1px solid rgba(34,85,204,0.60);
+      color: #aaccff;
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      pointer-events: all;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      position: relative;
+      transition: background 0.15s;
+    }
+    #deck-chat-btn:active {
+      background: rgba(34,85,204,0.40);
+    }
+    #deck-chat-badge {
+      background: #cc2828; color: #fff;
+      font-size: 8px; padding: 1px 4px;
+      border-radius: 6px; margin-left: 4px;
+      font-weight: bold;
+    }
+    /* デッキ底部のSafe Area対応 */
+    #deck-safe-bottom {
+      flex-shrink: 0;
+      height: env(safe-area-inset-bottom, 0px);
+      background: #0a0a1a;
     }
 
     /* ===== Chat System ===== */
@@ -277,7 +440,7 @@
 
     /* ===== スマホ縦画面用レスポンシブ ===== */
     @media (max-width: 768px) and (orientation: portrait) {
-      /* チャットパネル: 右サイドバー → ボトムシート形式 */
+      /* チャットパネル: ボトムシート形式（コントロールデッキの上にオーバーレイ） */
       #chat-panel {
         top: auto;
         left: 0;
@@ -285,7 +448,7 @@
         bottom: 0;
         width: 100%;
         max-width: 100vw;
-        height: 55vh;
+        height: 50vh;
         border-left: none;
         border-top: 2px solid #2255cc;
         border-radius: 12px 12px 0 0;
@@ -294,25 +457,13 @@
       #chat-panel.open {
         transform: translateY(0);
       }
-      /* チャットトグルボタン: FOCUSボタンの上に配置 */
+      /* PC用のチャットトグルは縦画面で非表示（デッキ内ボタンを使用） */
       #chat-toggle {
-        bottom: 130px;
-        right: 16px;
-        padding: 8px 14px;
-        font-size: 10px;
+        display: none !important;
       }
       /* チャット入力を安全エリア対応 */
       #chat-input-area {
         padding-bottom: max(8px, env(safe-area-inset-bottom));
-      }
-      /* ジョイスティック・FOCUSボタンの位置微調整 */
-      #joystick-zone {
-        left: 16px;
-        bottom: 20px;
-      }
-      #focus-btn {
-        right: 16px;
-        bottom: 28px;
       }
       /* ログインボックスをスマホ幅に合わせる */
       .login-box {
@@ -347,6 +498,29 @@
     </div>
     <!-- FOCUSボタン（右下） -->
     <button id="focus-btn">FOCUS</button>
+  </div>
+
+  <!-- コントロールデッキ（スマホ縦画面用） -->
+  <div id="control-deck">
+    <div id="deck-content">
+      <!-- 左: ジョイスティック -->
+      <div id="deck-joystick-zone">
+        <div id="deck-joystick-base"></div>
+        <div id="deck-joystick-stick"></div>
+      </div>
+      <!-- 中央: ステータス -->
+      <div id="deck-status">
+        <div id="deck-status-label">STATUS</div>
+        <div id="deck-status-value">NORMAL</div>
+        <div id="deck-online">▶ 1 ONLINE</div>
+      </div>
+      <!-- 右: ボタン群 -->
+      <div id="deck-buttons">
+        <button id="deck-focus-btn">FOCUS</button>
+        <button id="deck-chat-btn">CHAT<span id="deck-chat-badge" style="display:none;">0</span></button>
+      </div>
+    </div>
+    <div id="deck-safe-bottom"></div>
   </div>
 
   <!-- Chat System -->
@@ -407,7 +581,8 @@
 
     let cssW, cssH;
     if (isPortrait) {
-      // スマホ縦画面: 幅100%で上部に配置、アスペクト比維持
+      // スマホ縦画面: 幅100%でアスペクト比維持
+      // heightはCSSのflex-shrink:0で固定され、残りがコントロールデッキに割り当てられる
       cssW = window.innerWidth;
       cssH = Math.round(cssW * (GAME_HEIGHT / GAME_WIDTH));
     } else {
@@ -426,6 +601,13 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // アンチエイリアス完全無効
     ctx.imageSmoothingEnabled = false;
+  }
+
+  // ============================================================
+  //  ポートレート判定ヘルパー
+  // ============================================================
+  function isPortraitMode() {
+    return window.innerHeight > window.innerWidth;
   }
   setupCanvas();
   window.addEventListener('resize', setupCanvas);
@@ -508,43 +690,25 @@
    * タッチデバイス検出。
    * ポインターがタッチ対応なら UI を表示する。
    */
-  function initTouchUI() {
-    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-    if (!isTouch) return;
-
-    // タッチUIを表示
-    const touchUI = document.getElementById('touch-ui');
-    touchUI.style.display = 'block';
-
-    // ---- ジョイスティック ----
-    const zone  = document.getElementById('joystick-zone');
-    const stick = document.getElementById('joystick-stick');
-    const RADIUS = 33; // スティックの最大移動半径 (px)
-    const DEAD   = 8;  // デッドゾーン (px) — この範囲内は無入力扱い
-
+  /**
+   * ジョイスティックを指定要素に初期化する汎用関数
+   */
+  function setupJoystick(zone, stick, radius, dead) {
     let joyActive = false;
-    let joyOriginX = 0, joyOriginY = 0;
 
     function updateJoy(touchX, touchY) {
-      // zone の中心からの相対位置
       const rect = zone.getBoundingClientRect();
-      const cx = rect.left + rect.width  / 2;
-      const cy = rect.top  + rect.height / 2;
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
       let dx = touchX - cx;
       let dy = touchY - cy;
-
-      // スティックを最大半径内にクランプ
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      if (dist > RADIUS) { dx = dx/dist*RADIUS; dy = dy/dist*RADIUS; }
-
-      // スティックの見た目を移動
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > radius) { dx = dx / dist * radius; dy = dy / dist * radius; }
       stick.style.transform = `translate(calc(-50% + ${Math.round(dx)}px), calc(-50% + ${Math.round(dy)}px))`;
-
-      // keys フラグをデッドゾーン判定で更新
-      keys.left  = dx < -DEAD;
-      keys.right = dx >  DEAD;
-      keys.up    = dy < -DEAD;
-      keys.down  = dy >  DEAD;
+      keys.left = dx < -dead;
+      keys.right = dx > dead;
+      keys.up = dy < -dead;
+      keys.down = dy > dead;
     }
 
     function resetJoy() {
@@ -553,32 +717,92 @@
       joyActive = false;
     }
 
-    zone.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      joyActive = true;
-      updateJoy(e.touches[0].clientX, e.touches[0].clientY);
-    }, { passive: false });
-
-    zone.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      if (!joyActive) return;
-      updateJoy(e.touches[0].clientX, e.touches[0].clientY);
-    }, { passive: false });
-
-    zone.addEventListener('touchend',    (e) => { e.preventDefault(); resetJoy(); }, { passive: false });
+    zone.addEventListener('touchstart', (e) => { e.preventDefault(); joyActive = true; updateJoy(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+    zone.addEventListener('touchmove', (e) => { e.preventDefault(); if (joyActive) updateJoy(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+    zone.addEventListener('touchend', (e) => { e.preventDefault(); resetJoy(); }, { passive: false });
     zone.addEventListener('touchcancel', (e) => { e.preventDefault(); resetJoy(); }, { passive: false });
+  }
 
-    // ---- FOCUSボタン ----
-    const focusBtn = document.getElementById('focus-btn');
+  /**
+   * FOCUSボタンのトグル処理
+   */
+  function handleFocusToggle(btn) {
+    if (!localPlayer) return;
+    localPlayer.status = localPlayer.status === 'normal' ? 'focus' : 'normal';
+    socket.emit('status_change', { status: localPlayer.status });
+    // 全FOCUSボタンの見た目を同期
+    document.querySelectorAll('#focus-btn, #deck-focus-btn').forEach(b => {
+      b.classList.toggle('active', localPlayer.status === 'focus');
+    });
+    updateDeckStatus();
+  }
 
-    focusBtn.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      if (!localPlayer) return;
-      localPlayer.status = localPlayer.status === 'normal' ? 'focus' : 'normal';
-      socket.emit('status_change', { status: localPlayer.status });
-      // ボタンの見た目を同期
-      focusBtn.classList.toggle('active', localPlayer.status === 'focus');
-    }, { passive: false });
+  /**
+   * デッキのステータス表示を更新
+   */
+  function updateDeckStatus() {
+    const sv = document.getElementById('deck-status-value');
+    const so = document.getElementById('deck-online');
+    if (!sv) return;
+    if (localPlayer) {
+      const isFocus = localPlayer.status === 'focus';
+      sv.textContent = isFocus ? '● FOCUS' : '○ NORMAL';
+      sv.classList.toggle('focus', isFocus);
+    }
+    const total = remotePlayers.size + (localPlayer ? 1 : 0) + (botNPC.active ? 1 : 0);
+    if (so) so.textContent = `▶ ${total} ONLINE`;
+  }
+
+  /**
+   * デッキ内のチャットバッジ同期
+   */
+  function updateDeckChatBadge() {
+    const badge = document.getElementById('deck-chat-badge');
+    if (!badge) return;
+    const total = unreadGlobal + unreadDM;
+    if (total > 0) {
+      badge.textContent = total > 99 ? '99+' : total;
+      badge.style.display = 'inline';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  function initTouchUI() {
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    if (!isTouch) return;
+
+    if (isPortraitMode()) {
+      // ---- 縦画面: コントロールデッキ内のジョイスティック ----
+      const deckZone = document.getElementById('deck-joystick-zone');
+      const deckStick = document.getElementById('deck-joystick-stick');
+      setupJoystick(deckZone, deckStick, 36, 8);
+
+      // デッキ内FOCUSボタン
+      const deckFocusBtn = document.getElementById('deck-focus-btn');
+      deckFocusBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handleFocusToggle(deckFocusBtn);
+      }, { passive: false });
+
+      // デッキ内CHATボタン
+      document.getElementById('deck-chat-btn').addEventListener('click', toggleChat);
+
+    } else {
+      // ---- 横画面: 従来のフローティングUI ----
+      const touchUI = document.getElementById('touch-ui');
+      touchUI.style.display = 'block';
+
+      const zone = document.getElementById('joystick-zone');
+      const stick = document.getElementById('joystick-stick');
+      setupJoystick(zone, stick, 33, 8);
+
+      const focusBtn = document.getElementById('focus-btn');
+      focusBtn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        handleFocusToggle(focusBtn);
+      }, { passive: false });
+    }
   }
 
   // ============================================================
@@ -621,6 +845,7 @@
       botNPC.status='normal';
     }
     render();
+    updateDeckStatus();
     requestAnimationFrame(gameLoop);
   }
 
@@ -1394,6 +1619,7 @@
     } else {
       badge.style.display = 'none';
     }
+    updateDeckChatBadge();
   }
 
   function showNotification(sender, text) {
