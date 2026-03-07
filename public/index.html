@@ -205,6 +205,20 @@
   const remotePlayers = new Map();
   let lastTime = 0, lastSentX = 0, lastSentY = 0;
 
+  // ============================================================
+  //  Bot NPC 状態管理
+  // ============================================================
+  const botNPC = {
+    active: false,
+    x: 480,           // 後列中央の机
+    y: 380,
+    name: 'TOPIK Bot',
+    status: 'normal',
+    botStatus: 'idle',   // idle | working | done
+    botMessage: '',
+    doneTimer: 0,        // done 表示の残り時間(ms)
+  };
+
   const keys = { up:false, down:false, left:false, right:false };
 
   document.addEventListener('keydown', (e) => {
@@ -344,6 +358,13 @@
       rp.currentX+=(rp.targetX-rp.currentX)*f;
       rp.currentY+=(rp.targetY-rp.currentY)*f;
     });
+    // Bot NPC の done タイマー処理
+    if(botNPC.active && botNPC.doneTimer>0 && Date.now()>botNPC.doneTimer){
+      botNPC.doneTimer=0;
+      botNPC.botMessage='';
+      botNPC.botStatus='idle';
+      botNPC.status='normal';
+    }
     render();
     requestAnimationFrame(gameLoop);
   }
@@ -362,6 +383,8 @@
     drawFloorShadow();
     // 后列→前列の順で机と人物を描画
     drawDesks();
+    // Bot NPCを描画（他プレイヤーの前に描画 = 机に近い位置）
+    drawBotNPC();
     remotePlayers.forEach((rp)=>{
       drawAvatar(Math.round(rp.currentX),Math.round(rp.currentY),rp.name,rp.status,false);
     });
@@ -829,11 +852,152 @@
   }
 
   // ============================================================
+  //  Bot NPC 描画（紫色の専用キャラクター + 吹き出し）
+  // ============================================================
+  function drawBotNPC() {
+    if (!botNPC.active) return;
+
+    const x = Math.round(botNPC.x);
+    const y = Math.round(botNPC.y);
+    const isWorking = botNPC.botStatus === 'working';
+    const isDone = botNPC.botStatus === 'done';
+
+    // --- 色テーマ（紫ベース）---
+    const bodyColor   = isWorking ? '#cc2828' : '#8844cc';
+    const skinColor   = isWorking ? '#e88888' : '#ccaaff';
+    const outlineColor= isWorking ? '#ff7070' : '#aa77ff';
+
+    // 集中モードのオーラ（working時）
+    if (isWorking) {
+      const p = 0.5 + 0.5 * Math.sin(Date.now() / 380);
+      ctx.strokeStyle = `rgba(255,50,50,${(0.22 + p * 0.28).toFixed(2)})`;
+      ctx.lineWidth = 2; ctx.strokeRect(x - 14, y - 30, 28, 34);
+      ctx.strokeStyle = `rgba(255,80,80,${(0.08 + p * 0.10).toFixed(2)})`;
+      ctx.lineWidth = 3; ctx.strokeRect(x - 18, y - 34, 36, 42);
+    }
+
+    // 足元の影
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.fillRect(x - 7, y, 14, 3);
+
+    // 脚
+    ctx.fillStyle = bodyColor;
+    ctx.fillRect(x - 5, y - 8, 3, 8);
+    ctx.fillRect(x + 2, y - 8, 3, 8);
+    // 靴
+    ctx.fillStyle = isWorking ? '#880000' : '#442266';
+    ctx.fillRect(x - 6, y - 2, 4, 2);
+    ctx.fillRect(x + 2, y - 2, 4, 2);
+
+    // 胴体
+    ctx.fillStyle = bodyColor;
+    ctx.fillRect(x - 4, y - 16, 8, 8);
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillRect(x - 3, y - 15, 6, 2);
+    ctx.strokeStyle = outlineColor; ctx.lineWidth = 1;
+    ctx.strokeRect(x - 4 + 0.5, y - 16 + 0.5, 7, 7);
+
+    // 腕
+    ctx.fillStyle = bodyColor;
+    ctx.fillRect(x - 7, y - 16, 3, 6);
+    ctx.fillRect(x + 4, y - 16, 3, 6);
+    // 手
+    ctx.fillStyle = skinColor;
+    ctx.fillRect(x - 7, y - 11, 3, 2);
+    ctx.fillRect(x + 4, y - 11, 3, 2);
+
+    // 首
+    ctx.fillStyle = skinColor;
+    ctx.fillRect(x - 1, y - 18, 2, 2);
+
+    // 頭
+    ctx.fillStyle = skinColor;
+    ctx.fillRect(x - 4, y - 26, 8, 8);
+    ctx.strokeStyle = outlineColor; ctx.lineWidth = 1;
+    ctx.strokeRect(x - 4 + 0.5, y - 26 + 0.5, 7, 7);
+    // 目（ロボット風の光る目）
+    ctx.fillStyle = isWorking ? '#ff0000' : '#ff44ff';
+    ctx.fillRect(x - 3, y - 23, 2, 2);
+    ctx.fillRect(x + 1, y - 23, 2, 2);
+    // 口（直線 = ロボット風）
+    ctx.fillStyle = isWorking ? '#661111' : '#553388';
+    ctx.fillRect(x - 2, y - 19, 4, 1);
+    // 髪（アンテナ風）
+    ctx.fillStyle = isWorking ? '#661111' : '#553388';
+    ctx.fillRect(x - 4, y - 26, 8, 2);
+    // アンテナ
+    ctx.fillStyle = '#aa77ff';
+    ctx.fillRect(x - 1, y - 29, 2, 3);
+    ctx.fillRect(x - 2, y - 30, 4, 2);
+
+    // --- 名前テキスト ---
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(0,0,0,0.95)';
+    for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) {
+      if (ox === 0 && oy === 0) continue;
+      ctx.fillText('TOPIK Bot', x + ox, y - 26 - 3 + oy);
+    }
+    ctx.fillStyle = '#ddaaff';
+    ctx.fillText('TOPIK Bot', x, y - 26 - 3);
+
+    // --- 吹き出し（botMessage がある場合）---
+    if (botNPC.botMessage) {
+      drawBotBubble(x, y - 40, botNPC.botMessage, isWorking, isDone);
+    }
+
+    // FOCUS バッジ (working 時)
+    if (isWorking) {
+      ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      const bw = 34, bh = 12, bx2 = x - bw / 2, by = y + 4;
+      ctx.fillStyle = '#aa1818'; ctx.fillRect(bx2, by, bw, bh);
+      ctx.strokeStyle = '#ff5555'; ctx.lineWidth = 1;
+      ctx.strokeRect(bx2 + 0.5, by + 0.5, bw - 1, bh - 1);
+      ctx.fillStyle = '#fff'; ctx.fillText('WORK', x, by + 2);
+    }
+  }
+
+  function drawBotBubble(x, y, message, isWorking, isDone) {
+    ctx.font = 'bold 9px monospace';
+    const textWidth = ctx.measureText(message).width;
+    const pw = textWidth + 16;
+    const ph = 18;
+    const px = x - pw / 2;
+    const py = y - ph - 8;
+
+    // 吹き出し背景
+    const bgColor = isDone ? 'rgba(34,120,60,0.92)' : (isWorking ? 'rgba(160,30,30,0.90)' : 'rgba(60,30,100,0.85)');
+    const borderColor = isDone ? '#44cc88' : (isWorking ? '#ff5555' : '#aa77ff');
+
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(px, py, pw, ph);
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px + 0.5, py + 0.5, pw - 1, ph - 1);
+
+    // 三角形（吹き出しの尻尾）
+    ctx.fillStyle = bgColor;
+    ctx.beginPath();
+    ctx.moveTo(x - 4, py + ph);
+    ctx.lineTo(x, py + ph + 5);
+    ctx.lineTo(x + 4, py + ph);
+    ctx.closePath();
+    ctx.fill();
+
+    // テキスト
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(message, x, py + ph / 2);
+  }
+
+  // ============================================================
   //  HUD — 4隅にシャープなピクセルテキスト
   //  ctx は DPR スケーリング済み。整数座標+monospaceで完全鮮明。
   // ============================================================
   function drawHUD(){
-    const total=remotePlayers.size+(localPlayer?1:0);
+    const total=remotePlayers.size+(localPlayer?1:0)+(botNPC.active?1:0);
     const PAD=6; // フレーム端からのパディング
 
     // ---- 左上: ▶ N ONLINE ----
@@ -899,6 +1063,15 @@
     socket.on('init',(players)=>{
       players.forEach(p=>{
         if(p.id===socket.id)return;
+        // Bot NPC は専用管理
+        if(p.id==='__topik_bot__'){
+          botNPC.active=true;
+          botNPC.x=p.x; botNPC.y=p.y;
+          botNPC.status=p.status;
+          botNPC.botStatus=p.botStatus||'idle';
+          botNPC.botMessage=p.botMessage||'';
+          return;
+        }
         remotePlayers.set(p.id,{
           currentX:p.x,currentY:p.y,targetX:p.x,targetY:p.y,
           name:p.name,status:p.status
@@ -906,6 +1079,15 @@
       });
     });
     socket.on('player_joined',(p)=>{
+      // Bot NPC は専用管理
+      if(p.id==='__topik_bot__'){
+        botNPC.active=true;
+        botNPC.x=p.x; botNPC.y=p.y;
+        botNPC.status=p.status;
+        botNPC.botStatus=p.botStatus||'idle';
+        botNPC.botMessage=p.botMessage||'';
+        return;
+      }
       remotePlayers.set(p.id,{
         currentX:p.x,currentY:p.y,targetX:p.x,targetY:p.y,
         name:p.name,status:p.status
@@ -919,7 +1101,27 @@
       const rp=remotePlayers.get(data.id);
       if(rp) rp.status=data.status;
     });
-    socket.on('player_left',(data)=>{remotePlayers.delete(data.id);});
+    socket.on('player_left',(data)=>{
+      if(data.id==='__topik_bot__'){
+        botNPC.active=false;
+        botNPC.botStatus='idle';
+        botNPC.botMessage='';
+        return;
+      }
+      remotePlayers.delete(data.id);
+    });
+
+    // Bot NPC ステータス更新
+    socket.on('bot_status',(data)=>{
+      botNPC.active=true;
+      botNPC.status=data.status;
+      botNPC.botStatus=data.botStatus;
+      botNPC.botMessage=data.botMessage||'';
+      // done の場合は10秒後にメッセージを消す
+      if(data.botStatus==='done'){
+        botNPC.doneTimer=Date.now()+10000;
+      }
+    });
   }
 
   // ============================================================

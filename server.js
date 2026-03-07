@@ -22,6 +22,9 @@ const io = new Server(server, {
   }
 });
 
+// JSON ボディパーサー（Bot API 用）
+app.use(express.json());
+
 // 静的ファイル配信 (public/ ディレクトリ)
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -30,6 +33,89 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Map<socketId, { x, y, name, status }>
 // ---------------------------------------------------------------
 const players = new Map();
+
+// ---------------------------------------------------------------
+// Bot NPC 管理
+// Discord Bot がステータスを送信すると、部屋にNPCとして表示
+// ---------------------------------------------------------------
+const BOT_ID = '__topik_bot__';
+const BOT_PLAYER = {
+  x: 480,       // 後列中央の机の位置
+  y: 380,       // 机の前に座っている位置
+  name: 'TOPIK Bot',
+  status: 'normal',
+  isBot: true,
+  botStatus: 'idle',      // idle | working | done
+  botMessage: '',
+};
+let botActive = false;
+let botTimeout = null;
+const BOT_TIMEOUT_MS = 5 * 60 * 1000; // 5分で自動退出
+
+function activateBot() {
+  if (!botActive) {
+    botActive = true;
+    // 全クライアントにBotの参加を通知
+    io.emit('player_joined', { id: BOT_ID, ...BOT_PLAYER });
+    console.log('[Bot NPC] Joined the room');
+  }
+  // タイムアウトをリセット
+  if (botTimeout) clearTimeout(botTimeout);
+  botTimeout = setTimeout(() => {
+    deactivateBot();
+  }, BOT_TIMEOUT_MS);
+}
+
+function deactivateBot() {
+  if (botActive) {
+    botActive = false;
+    BOT_PLAYER.botStatus = 'idle';
+    BOT_PLAYER.botMessage = '';
+    BOT_PLAYER.status = 'normal';
+    io.emit('player_left', { id: BOT_ID });
+    console.log('[Bot NPC] Left the room (timeout)');
+  }
+  if (botTimeout) { clearTimeout(botTimeout); botTimeout = null; }
+}
+
+// ---------------------------------------------------------------
+// Bot Status API エンドポイント
+// POST /api/bot-status { status: "idle"|"working"|"done", message: "..." }
+// ---------------------------------------------------------------
+app.post('/api/bot-status', (req, res) => {
+  const { status, message } = req.body;
+  if (!status) {
+    return res.status(400).json({ error: 'status is required' });
+  }
+
+  console.log(`[Bot API] status=${status}, message=${message || ''}`);
+
+  BOT_PLAYER.botStatus = status;
+  BOT_PLAYER.botMessage = message || '';
+  BOT_PLAYER.status = (status === 'working') ? 'focus' : 'normal';
+
+  // Bot を部屋に参加させる（まだ入ってなければ）
+  activateBot();
+
+  // 全クライアントにBotステータスを通知
+  io.emit('bot_status', {
+    id: BOT_ID,
+    status: BOT_PLAYER.status,
+    botStatus: status,
+    botMessage: BOT_PLAYER.botMessage,
+  });
+
+  res.json({ ok: true });
+});
+
+// GET /api/bot-status (現在の状態取得)
+app.get('/api/bot-status', (req, res) => {
+  res.json({
+    active: botActive,
+    botStatus: BOT_PLAYER.botStatus,
+    botMessage: BOT_PLAYER.botMessage,
+  });
+});
 
 io.on('connection', (socket) => {
   console.log(`[+] Connected   : ${socket.id}`);
@@ -52,6 +138,10 @@ io.on('connection', (socket) => {
     // 現在の全プレイヤーリスト（自分自身を含む）を送信
     const snapshot = [];
     players.forEach((p, id) => snapshot.push({ id, ...p }));
+    // Bot NPC がアクティブなら含める
+    if (botActive) {
+      snapshot.push({ id: BOT_ID, ...BOT_PLAYER });
+    }
     socket.emit('init', snapshot);
 
     // 他の全プレイヤーに新規参加を通知
