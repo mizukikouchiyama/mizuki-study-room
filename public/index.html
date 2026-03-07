@@ -125,6 +125,139 @@
       border-color: rgba(255,100,100,0.90);
       color: #ffcccc;
     }
+
+    /* ===== Chat System ===== */
+    #chat-panel {
+      position: fixed;
+      right: 0; top: 0; bottom: 0;
+      width: 320px;
+      max-width: 85vw;
+      background: rgba(8, 8, 20, 0.95);
+      border-left: 2px solid #2255cc;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      font-family: 'Courier New', Courier, monospace;
+    }
+    #chat-panel.open { transform: translateX(0); }
+    #chat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      border-bottom: 1px solid #2244aa;
+      flex-shrink: 0;
+    }
+    #chat-tabs { display: flex; gap: 4px; }
+    .chat-tab {
+      background: transparent;
+      border: 1px solid #334466;
+      color: #556688;
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .chat-tab.active {
+      background: #2255cc;
+      border-color: #4488ff;
+      color: #fff;
+    }
+    #chat-close {
+      background: none; border: none;
+      color: #556688; font-size: 20px;
+      cursor: pointer; padding: 4px 8px;
+      font-family: 'Courier New', monospace;
+    }
+    #chat-close:hover { color: #ff4444; }
+    #dm-selector {
+      padding: 8px 12px;
+      border-bottom: 1px solid #1a2244;
+      flex-shrink: 0;
+    }
+    #dm-target {
+      width: 100%;
+      background: #080814;
+      border: 1px solid #2244aa;
+      color: #aaccff;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      padding: 6px 8px;
+      outline: none;
+    }
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    #chat-messages::-webkit-scrollbar { width: 6px; }
+    #chat-messages::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+    #chat-messages::-webkit-scrollbar-thumb { background: #2255cc; border-radius: 3px; }
+    .chat-msg {
+      font-size: 12px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .chat-msg .msg-name { font-weight: bold; margin-right: 6px; }
+    .chat-msg.global .msg-name { color: #44cc88; }
+    .chat-msg.dm .msg-name { color: #ff79c6; }
+    .chat-msg.dm-sent .msg-name { color: #bd93f9; }
+    .chat-msg .msg-text { color: #ccd6f6; }
+    .chat-msg .msg-time { color: #334466; font-size: 9px; margin-left: 6px; }
+    .chat-msg.system { color: #556688; font-style: italic; font-size: 11px; }
+    #chat-input-area {
+      display: flex;
+      padding: 8px 12px;
+      gap: 6px;
+      border-top: 1px solid #2244aa;
+      flex-shrink: 0;
+    }
+    #chat-input {
+      flex: 1;
+      background: #080814;
+      border: 1px solid #2244aa;
+      color: #aaccff;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      padding: 8px 10px;
+      outline: none;
+      letter-spacing: 1px;
+    }
+    #chat-input:focus { border-color: #4488ff; }
+    #chat-send {
+      background: #2255cc; border: none; color: #fff;
+      font-family: 'Courier New', monospace;
+      font-size: 10px; letter-spacing: 2px;
+      padding: 8px 14px; cursor: pointer;
+    }
+    #chat-send:hover { background: #3366dd; }
+    #chat-toggle {
+      position: fixed;
+      bottom: 80px; right: 12px;
+      background: rgba(14, 14, 34, 0.90);
+      border: 2px solid #2255cc;
+      color: #aaccff;
+      font-family: 'Courier New', monospace;
+      font-size: 11px; letter-spacing: 2px;
+      padding: 10px 16px;
+      cursor: pointer; z-index: 55;
+      display: none;
+      transition: background 0.15s;
+    }
+    #chat-toggle:hover { background: rgba(34, 85, 204, 0.40); }
+    #chat-badge {
+      background: #cc2828; color: #fff;
+      font-size: 9px; padding: 2px 5px;
+      border-radius: 8px; margin-left: 6px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -151,6 +284,29 @@
     <!-- FOCUSボタン（右下） -->
     <button id="focus-btn">FOCUS</button>
   </div>
+
+  <!-- Chat System -->
+  <div id="chat-panel">
+    <div id="chat-header">
+      <div id="chat-tabs">
+        <button class="chat-tab active" data-tab="global">GLOBAL</button>
+        <button class="chat-tab" data-tab="dm">DM</button>
+      </div>
+      <button id="chat-close">&times;</button>
+    </div>
+    <div id="dm-selector" style="display:none;">
+      <select id="dm-target">
+        <option value="">-- SELECT USER --</option>
+      </select>
+    </div>
+    <div id="chat-messages"></div>
+    <div id="chat-input-area">
+      <input id="chat-input" type="text" maxlength="200"
+             placeholder="Type a message..." autocomplete="off" spellcheck="false" />
+      <button id="chat-send">SEND</button>
+    </div>
+  </div>
+  <button id="chat-toggle">CHAT<span id="chat-badge" style="display:none;">0</span></button>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -221,7 +377,30 @@
 
   const keys = { up:false, down:false, left:false, right:false };
 
+  // ============================================================
+  //  チャット状態管理
+  // ============================================================
+  let chatOpen = false;
+  let chatTab = 'global';  // 'global' | 'dm'
+  let unreadGlobal = 0;
+  let unreadDM = 0;
+  const globalMessages = [];
+  const dmMessages = [];
+  const MAX_CHAT_MESSAGES = 100;
+  let chatInputFocused = false;
+
   document.addEventListener('keydown', (e) => {
+    // チャット入力中はゲーム操作を無効化
+    if(chatInputFocused){
+      if(e.key==='Enter'){ sendChatMessage(); e.preventDefault(); }
+      if(e.key==='Escape'){ toggleChat(); e.preventDefault(); }
+      return;
+    }
+    // Enterでチャット開閉
+    if(e.key==='Enter' && localPlayer){
+      toggleChat(); e.preventDefault(); return;
+    }
+
     switch(e.code){
       case 'ArrowUp':    case 'KeyW': keys.up    = true; break;
       case 'ArrowDown':  case 'KeyS': keys.down  = true; break;
@@ -1025,7 +1204,7 @@
     ctx.fillText(titleTxt, GAME_WIDTH-PAD-PAD, PAD+4);
 
     // ---- 下部中央: 操作ガイド ----
-    const hintTxt='WASD / \u2191\u2193\u2190\u2192 : Move    SPACE : Focus Mode';
+    const hintTxt='WASD : Move    SPACE : Focus    ENTER : Chat';
     ctx.font='9px monospace';
     ctx.textAlign='center'; ctx.textBaseline='bottom';
     const hintW=Math.round(ctx.measureText(hintTxt).width);
@@ -1049,6 +1228,116 @@
   }
 
   // ============================================================
+  //  チャット機能
+  // ============================================================
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function formatTime(ts) {
+    const d = new Date(ts);
+    return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+  }
+
+  function toggleChat() {
+    const panel = document.getElementById('chat-panel');
+    chatOpen = !chatOpen;
+    panel.classList.toggle('open', chatOpen);
+    if (chatOpen) {
+      // 未読リセット（現在のタブ）
+      if (chatTab === 'global') unreadGlobal = 0;
+      else unreadDM = 0;
+      updateChatBadge();
+      renderMessages();
+      setTimeout(() => { document.getElementById('chat-input').focus(); }, 100);
+    } else {
+      document.getElementById('chat-input').blur();
+    }
+  }
+
+  function switchChatTab(tab) {
+    chatTab = tab;
+    document.querySelectorAll('.chat-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === tab);
+    });
+    document.getElementById('dm-selector').style.display = (tab === 'dm') ? 'block' : 'none';
+    // 未読リセット
+    if (tab === 'global') unreadGlobal = 0;
+    else unreadDM = 0;
+    updateChatBadge();
+    renderMessages();
+  }
+
+  function renderMessages() {
+    const container = document.getElementById('chat-messages');
+    const msgs = (chatTab === 'global') ? globalMessages : dmMessages;
+    container.innerHTML = msgs.map(m => {
+      const cls = m.isSelf ? (m.type === 'dm' ? 'dm-sent' : 'global') : m.type;
+      const prefix = (m.type === 'dm' && m.isSelf) ? `TO ${escapeHtml(m.targetName)}` : escapeHtml(m.name);
+      return `<div class="chat-msg ${cls}"><span class="msg-name">${prefix}</span><span class="msg-text">${escapeHtml(m.text)}</span><span class="msg-time">${formatTime(m.timestamp)}</span></div>`;
+    }).join('');
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text || !socket) return;
+
+    if (chatTab === 'dm') {
+      const targetId = document.getElementById('dm-target').value;
+      if (!targetId) { input.placeholder = 'Select a user first!'; setTimeout(() => { input.placeholder = 'Type a message...'; }, 1500); return; }
+      socket.emit('dm_message', { text, targetId });
+    } else {
+      socket.emit('chat_message', { text });
+    }
+    input.value = '';
+  }
+
+  function updateDMSelector() {
+    const sel = document.getElementById('dm-target');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">-- SELECT USER --</option>';
+    remotePlayers.forEach((rp, id) => {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = rp.name;
+      sel.appendChild(opt);
+    });
+    // 以前の選択を復元
+    if (current && remotePlayers.has(current)) sel.value = current;
+  }
+
+  function updateChatBadge() {
+    const badge = document.getElementById('chat-badge');
+    const total = unreadGlobal + unreadDM;
+    if (total > 0) {
+      badge.textContent = total > 99 ? '99+' : total;
+      badge.style.display = 'inline';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  function showNotification(sender, text) {
+    if (Notification.permission !== 'granted') return;
+    try {
+      const n = new Notification('Study Room - ' + sender, {
+        body: text.slice(0, 100),
+        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💬</text></svg>',
+        tag: 'study-room-chat',
+      });
+      n.onclick = () => {
+        window.focus();
+        if (!chatOpen) toggleChat();
+        n.close();
+      };
+      setTimeout(() => n.close(), 5000);
+    } catch(e) { /* Safari等で失敗しても無視 */ }
+  }
+
+  // ============================================================
   //  Socket.io
   // ============================================================
   function initSocket(name){
@@ -1063,7 +1352,6 @@
     socket.on('init',(players)=>{
       players.forEach(p=>{
         if(p.id===socket.id)return;
-        // Bot NPC は専用管理
         if(p.id==='__topik_bot__'){
           botNPC.active=true;
           botNPC.x=p.x; botNPC.y=p.y;
@@ -1077,9 +1365,9 @@
           name:p.name,status:p.status
         });
       });
+      updateDMSelector();
     });
     socket.on('player_joined',(p)=>{
-      // Bot NPC は専用管理
       if(p.id==='__topik_bot__'){
         botNPC.active=true;
         botNPC.x=p.x; botNPC.y=p.y;
@@ -1092,6 +1380,7 @@
         currentX:p.x,currentY:p.y,targetX:p.x,targetY:p.y,
         name:p.name,status:p.status
       });
+      updateDMSelector();
     });
     socket.on('player_moved',(data)=>{
       const rp=remotePlayers.get(data.id);
@@ -1109,6 +1398,7 @@
         return;
       }
       remotePlayers.delete(data.id);
+      updateDMSelector();
     });
 
     // Bot NPC ステータス更新
@@ -1117,10 +1407,29 @@
       botNPC.status=data.status;
       botNPC.botStatus=data.botStatus;
       botNPC.botMessage=data.botMessage||'';
-      // done の場合は10秒後にメッセージを消す
       if(data.botStatus==='done'){
         botNPC.doneTimer=Date.now()+10000;
       }
+    });
+
+    // ---- チャット: 全体メッセージ受信 ----
+    socket.on('chat_message',(msg)=>{
+      const isSelf=(msg.id===socket.id);
+      globalMessages.push({name:msg.name,text:msg.text,timestamp:msg.timestamp,type:'global',isSelf});
+      if(globalMessages.length>MAX_CHAT_MESSAGES) globalMessages.shift();
+      if(chatOpen && chatTab==='global') renderMessages();
+      else { unreadGlobal++; updateChatBadge(); }
+      if(!isSelf && document.hidden) showNotification(msg.name,msg.text);
+    });
+
+    // ---- チャット: DM受信 ----
+    socket.on('dm_message',(msg)=>{
+      const isSelf=(msg.id===socket.id);
+      dmMessages.push({name:msg.name,text:msg.text,timestamp:msg.timestamp,type:'dm',isSelf,targetName:msg.targetName});
+      if(dmMessages.length>MAX_CHAT_MESSAGES) dmMessages.shift();
+      if(chatOpen && chatTab==='dm') renderMessages();
+      else { unreadDM++; updateChatBadge(); }
+      if(!isSelf && document.hidden) showNotification(msg.name+' (DM)',msg.text);
     });
   }
 
@@ -1136,14 +1445,40 @@
       return;
     }
     document.getElementById('overlay').style.display='none';
+    document.getElementById('chat-toggle').style.display='block'; // チャットボタン表示
     initSocket(name);
     initTouchUI();           // タッチデバイスならジョイスティックを有効化
     requestAnimationFrame(gameLoop);
+    // プッシュ通知の権限リクエスト
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
   });
   document.getElementById('nameInput').addEventListener('keydown',(e)=>{
     if(e.key==='Enter') document.getElementById('joinBtn').click();
   });
   window.addEventListener('load',()=>{document.getElementById('nameInput').focus();});
+
+  // ============================================================
+  //  チャットUIイベントリスナー
+  // ============================================================
+  document.getElementById('chat-toggle').addEventListener('click', toggleChat);
+  document.getElementById('chat-close').addEventListener('click', toggleChat);
+  document.getElementById('chat-send').addEventListener('click', sendChatMessage);
+  document.querySelectorAll('.chat-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchChatTab(tab.dataset.tab));
+  });
+  // チャット入力のフォーカス管理（ゲーム操作と干渉しないように）
+  document.getElementById('chat-input').addEventListener('focus', () => { chatInputFocused = true; });
+  document.getElementById('chat-input').addEventListener('blur', () => { chatInputFocused = false; });
+  // 別タブ→戻ってきた時の通知管理
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && chatOpen) {
+      if (chatTab === 'global') unreadGlobal = 0;
+      else unreadDM = 0;
+      updateChatBadge();
+    }
+  });
   </script>
 </body>
 </html>

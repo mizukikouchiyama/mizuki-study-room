@@ -180,6 +180,45 @@ io.on('connection', (socket) => {
   });
 
   // ---------------------------------------------------------------
+  // chat_message: 全体チャット
+  //  - 送信者名を付加して全員に配信（送信者自身にも返す）
+  // ---------------------------------------------------------------
+  socket.on('chat_message', (data) => {
+    const player = players.get(socket.id);
+    if (!player) return;
+    const msg = {
+      id: socket.id,
+      name: player.name,
+      text: String(data.text || '').slice(0, 200),
+      timestamp: Date.now(),
+      type: 'global'
+    };
+    io.emit('chat_message', msg);
+  });
+
+  // ---------------------------------------------------------------
+  // dm_message: ダイレクトメッセージ（個人チャット）
+  //  - 宛先と送信者の2人にのみ配信
+  // ---------------------------------------------------------------
+  socket.on('dm_message', (data) => {
+    const sender = players.get(socket.id);
+    if (!sender) return;
+    const targetId = data.targetId;
+    if (!targetId || !players.has(targetId)) return;
+    const msg = {
+      id: socket.id,
+      name: sender.name,
+      text: String(data.text || '').slice(0, 200),
+      timestamp: Date.now(),
+      type: 'dm',
+      targetId: targetId,
+      targetName: players.get(targetId).name
+    };
+    io.to(targetId).emit('dm_message', msg);
+    socket.emit('dm_message', msg);
+  });
+
+  // ---------------------------------------------------------------
   // disconnect: 切断処理
   //  - Mapから確実に削除
   //  - io.emit (自分を含む全員) で通知することで、
