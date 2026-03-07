@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Study Room MVP</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -10,11 +10,27 @@
       background: #000;
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: flex-start;
       width: 100vw;
       height: 100vh;
+      height: 100dvh;
       overflow: hidden;
       font-family: 'Courier New', Courier, monospace;
+    }
+    /* スマホ縦画面: Canvasを上寄せ、コントロール領域を下に確保 */
+    @media (orientation: portrait) {
+      body {
+        align-items: flex-start;
+      }
+      #canvas {
+        margin-top: 0 !important;
+      }
+    }
+    /* PC/横画面: 従来通り中央配置 */
+    @media (orientation: landscape) {
+      body {
+        align-items: center;
+      }
     }
     #overlay {
       position: fixed; inset: 0;
@@ -258,6 +274,54 @@
       border-radius: 8px; margin-left: 6px;
       font-weight: bold;
     }
+
+    /* ===== スマホ縦画面用レスポンシブ ===== */
+    @media (max-width: 768px) and (orientation: portrait) {
+      /* チャットパネル: 右サイドバー → ボトムシート形式 */
+      #chat-panel {
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        max-width: 100vw;
+        height: 55vh;
+        border-left: none;
+        border-top: 2px solid #2255cc;
+        border-radius: 12px 12px 0 0;
+        transform: translateY(100%);
+      }
+      #chat-panel.open {
+        transform: translateY(0);
+      }
+      /* チャットトグルボタン: FOCUSボタンの上に配置 */
+      #chat-toggle {
+        bottom: 130px;
+        right: 16px;
+        padding: 8px 14px;
+        font-size: 10px;
+      }
+      /* チャット入力を安全エリア対応 */
+      #chat-input-area {
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
+      }
+      /* ジョイスティック・FOCUSボタンの位置微調整 */
+      #joystick-zone {
+        left: 16px;
+        bottom: 20px;
+      }
+      #focus-btn {
+        right: 16px;
+        bottom: 28px;
+      }
+      /* ログインボックスをスマホ幅に合わせる */
+      .login-box {
+        min-width: unset;
+        width: 85vw;
+        max-width: 360px;
+        padding: 32px 28px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -339,10 +403,22 @@
 
   function setupCanvas() {
     const dpr = window.devicePixelRatio || 1;
-    // フレームをタイトに — ウィンドウ幅いっぱいに使う
-    const cssScale = Math.min(window.innerWidth / GAME_WIDTH, window.innerHeight / GAME_HEIGHT);
-    canvas.style.width  = Math.round(GAME_WIDTH  * cssScale) + 'px';
-    canvas.style.height = Math.round(GAME_HEIGHT * cssScale) + 'px';
+    const isPortrait = window.innerHeight > window.innerWidth;
+
+    let cssW, cssH;
+    if (isPortrait) {
+      // スマホ縦画面: 幅100%で上部に配置、アスペクト比維持
+      cssW = window.innerWidth;
+      cssH = Math.round(cssW * (GAME_HEIGHT / GAME_WIDTH));
+    } else {
+      // PC/横画面: 従来通り、ウィンドウに収まる最大サイズ
+      const cssScale = Math.min(window.innerWidth / GAME_WIDTH, window.innerHeight / GAME_HEIGHT);
+      cssW = Math.round(GAME_WIDTH  * cssScale);
+      cssH = Math.round(GAME_HEIGHT * cssScale);
+    }
+
+    canvas.style.width  = cssW + 'px';
+    canvas.style.height = cssH + 'px';
     // 物理バッファ (高DPI)
     canvas.width  = Math.round(GAME_WIDTH  * dpr);
     canvas.height = Math.round(GAME_HEIGHT * dpr);
